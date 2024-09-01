@@ -16,12 +16,13 @@ class Car(pyglet.window.Window):
         self.vy = 0
         self.vx = 0
         self.speed = 2
-        self.velocity = [0,1]
+        self.velocity = [0,0]
         self.friction = 0.1
-        self.accerelation = 0
-        self.angular_acceleration = 0
-        self.angular_velocity = 0
-        self.const = 1/60        
+        self.moving = False
+        # self.accerelation = 0
+        # self.angular_acceleration = 0
+        # self.angular_velocity = 0
+        # self.const = 1/60        
 
 
     def on_draw(self):
@@ -40,7 +41,7 @@ class Car(pyglet.window.Window):
             self.directions['right'] = True
 
 
-    # @window.event
+    # @window.eventnumpy
     def on_key_release(self, symbol, modifiers):
         if symbol == pyglet.window.key.UP:
             self.directions['up'] = False
@@ -53,45 +54,55 @@ class Car(pyglet.window.Window):
 
     
     def update(self, dt):
+
         if self.directions['up']:
-            self.vy += self.speed
+            self.vy += 0.5
         if self.directions['down']:
-            self.vy -= self.speed
+            self.vy -= 0.5
+            
         if self.directions['left']:
-            self.vx -= self.speed
-            # car.rotation -= self.speed
+            self.vx -= 0.5
         if self.directions['right']:
-            self.vx += self.speed
-            # car.rotation += self.speed
-        # self.car.x = self.car.x + self.vx if 0 < self.car.x + self.vx < self.width else self.car.x
-        # self.car.y = self.car.y + self.vy if 0 < self.car.y + self.vy < self.height else self.car.y
-        # self.car.x = self.car.x + self.vx if 0 < self.car.x + self.vx < self.width else self.car.x
-        self.car.rotation += np.arctan(self.vy/self.vx) if self.vx != 0 else 0
-        
-        
-        # self.angular_acceleration += self.angular_acceleration * self.const
-        self.angular_velocity += self.vx * self.const
-        self.angle = self.angular_velocity * self.const
-
-        # self.accerelation[0] -= self.speed
-
-        self.velocity[0] += self.vx * self.const
-        self.velocity[1] += self.vy * self.const 
-
-        self.car.x += self.velocity[0] * self.const if 0 < self.car.x + self.velocity[0] * self.const < self.width else 0
-        self.car.y += self.velocity[1] * self.const if 0 < self.car.y + self.velocity[1] * self.const < self.height else 0
+            self.vx += 0.5
 
 
-        self.vx = max(0,self.vx - self.friction) if self.vx > 0 else min(0,self.vx + self.friction)
-        self.vy = max(0,self.vy - self.friction) if self.vy > 0 else min(0,self.vy + self.friction)
-
-        # print(self.vx,self.vy)
+        # dx = np.cos(np.deg2rad(self.vx))######
+        # dy = np.sin(np.deg2rad(self.vx)) angle = np.a
+        if (self.vy != 0):
+            angle = np.arctan2(self.vx, self.vy)
+            if (self.moving):
+                self.car.rotation = np.rad2deg(angle)/1
+                mag = np.sqrt(self.vx**2 + self.vy**2)
+                self.velocity[0] = np.cos(np.pi/2 - angle) * mag
+                self.velocity[1] = np.sin(np.pi/2 - angle) * mag  
+            else:
+                # self.car.rotation = np.rad2deg(angle)/1
+                mag = np.sqrt(self.vx**2 + self.vy**2)
+                self.velocity[0] = np.cos(np.pi/2 - angle) * mag
+                self.velocity[1] = np.sin(np.pi/2 - angle) * mag  
+            
+            
+            print(self.velocity[0], self.velocity[1])
+            # self.car.rotation += self.vx
+    
+            self.car.x += self.velocity[0] if 0 < self.car.x + self.velocity[0] < self.width else 0
+            self.car.y += self.velocity[1] if 0 < self.car.y + self.velocity[1] < self.height else 0
+            
+            self.vx = max(0,self.vx - self.friction) if self.vx > 0 else min(0,self.vx + self.friction)
+            self.vy = max(0,self.vy - self.friction) if self.vy > 0 else min(0,self.vy + self.friction)
+            self.moving = True
+        else:
+            self.vx = 0
+            self.moving = False
         
 
 car = Car(width=1280, height=720, caption="Track")
 
 pyglet.clock.schedule_interval(car.update, 1/60)
 pyglet.app.run()
+
+
+
 
 
 # background = pyglet.graphics.Group(order=0)
