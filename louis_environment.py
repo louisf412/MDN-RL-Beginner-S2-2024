@@ -8,15 +8,16 @@ WINDOW_WIDTH = 720
 WINDOW_HEIGHT = 540
 FRAME_RATE = 240
 
-# Background color
+# Define colors
 BACKGROUND_COLOR = (255, 255, 255, 255)
-TRACK_COLOR = (0,150,150,255)
-CAR_COLOR = (255,0,0,255)
+TRACK_COLOR = (0, 150, 150, 255)
+CAR_COLOR = (255, 0, 0, 255)
 
 class Point:
-    def __init__(self,x,y):
-        self.x = x
-        self.y = y
+	def __init__(self,x,y):
+		self.x = x
+		self.y = y
+
 
 # stolen intersection algorithm
 def ccw(A,B,C):
@@ -49,20 +50,18 @@ def find_intersection_point(A,B,C,D):
     return Point(intersection_x, intersection_y)
 
 
-
 class CarGame(pyglet.window.Window):
     def __init__(self,agent):
-        super().__init__(width = WINDOW_WIDTH, height = WINDOW_HEIGHT)
-        # The color of the car
-        self.carcolour = [(0,0,255,255), (255,0,0,255)]
+        super().__init__(width=WINDOW_WIDTH, height=WINDOW_HEIGHT)
+        self.carcolour = [(0, 0, 255, 255),(255, 0, 0, 255)]
         self.batch = pyglet.graphics.Batch()
         self.lines = []
         self.carlines = []
         self.agent = agent
         self.walls = []
-        self.turnkeyspressed = [0,0]
-
-        ## Walls
+        self.turnkeyspressed = [0,0] # l or r
+        
+        
         self.walls.append(Wall((60,235),(60,130),self.agent))
         self.walls.append(Wall((60,130),(169,41),self.agent))
         self.walls.append(Wall((169,41),(570,36),self.agent))
@@ -82,14 +81,16 @@ class CarGame(pyglet.window.Window):
         self.walls.append(Wall((249,406),(195,377),self.agent))
         self.walls.append(Wall((195,377),(186,281),self.agent))
 
+
         for wall in self.walls:
+            # self.lines.append(pyglet.shapes.Line(wall.start.x,wall.start.y,wall.end.x,wall.end.y,color=self.carcolour[self.agent.collided][:3], batch=self.batch))
             self.lines.append(pyglet.shapes.Line(wall.start.x,wall.start.y,wall.end.x,wall.end.y,color=self.carcolour[1][:3], batch=self.batch))
         self.lines.append(pyglet.shapes.Line(0,0,0,1))
         self.lines.append(pyglet.shapes.Line(0,0,0,1))
         self.lines.append(pyglet.shapes.Line(0,0,0,1))
         self.lines.append(pyglet.shapes.Line(0,0,0,1))
         self.lines.append(pyglet.shapes.Line(0,0,0,1))
-
+        
 
 
     def on_draw(self):
@@ -98,6 +99,7 @@ class CarGame(pyglet.window.Window):
         self.draw_game()
 
     def draw_game(self):
+        #drast = self.agent.proj_startw car
         x = self.agent.state[0]
         y = self.agent.state[1]
         th = self.agent.state[2]
@@ -107,9 +109,18 @@ class CarGame(pyglet.window.Window):
         proj_angles = self.agent.projections[0]
         proj_lengths = self.agent.projections[1]
         st = self.agent.proj_start
+        
 
-
-        # The car and the wheels
+        # self.lines.append(pyglet.shapes.Line(x,y,x+size[1]*cos(th),y+size[1]*sin(th),color=CAR_COLOR[:3], batch=self.batch))
+        # self.lines.append(pyglet.shapes.Line(x,y,x+size[0]*sin(th),y-size[0]*cos(th),color=CAR_COLOR[:3], batch=self.batch))
+        # self.lines.append(pyglet.shapes.Line(x+size[1]*cos(th),y+size[1]*sin(th),x+size[0]*sin(th)+size[1]*cos(th),y-size[0]*cos(th)+size[1]*sin(th),color=CAR_COLOR[:3], batch=self.batch))
+        # self.lines.append(pyglet.shapes.Line(x+size[0]*sin(th),y-size[0]*cos(th),x+size[0]*sin(th)+size[1]*cos(th),y-size[0]*cos(th)+size[1]*sin(th),color=CAR_COLOR[:3], batch=self.batch))
+        # self.lines.append(pyglet.shapes.Line(corners[0].x,corners[0].y,corners[3].x,corners[3].y,color=CAR_COLOR[:3], batch=self.batch))
+        # self.lines.append(pyglet.shapes.Line(corners[0].x,corners[0].y,corners[1].x,corners[1].y,color=CAR_COLOR[:3], batch=self.batch))
+        # self.lines.append(pyglet.shapes.Line(corners[2].x,corners[2].y,corners[1].x,corners[1].y,color=CAR_COLOR[:3], batch=self.batch))
+        # self.lines.append(pyglet.shapes.Line(corners[2].x,corners[2].y,corners[3].x,corners[3].y,color=CAR_COLOR[:3], batch=self.batch))
+        # print(self.agent.collided)
+        # body = pyglet.shapes.Rectangle(x+sin(th)*size[0]//2,y-cos(th)*size[0]//2,size[0],size[1],color=self.carcolour[self.agent.collided][:3], batch=self.batch)
         body = pyglet.shapes.Rectangle(x,y,size[0],size[1],color=self.carcolour[0][:3], batch=self.batch)
 
         body.anchor_x = size[0]//2
@@ -132,7 +143,6 @@ class CarGame(pyglet.window.Window):
         wheel4.anchor_y = 8//2
         wheel4.rotation = 90-(th)*180/(pi)
 
-        
         for _ in proj_angles:
             self.lines.pop()
         
@@ -191,11 +201,16 @@ class CarGame(pyglet.window.Window):
             self.agent.targetphi = self.agent.maxphi
             self.agent.rho = -4*self.agent.maxphi
             self.turnkeyspressed[1] = 1
+            
+           
+            
+
+
 
 class Agent():
     def __init__(self):
         self.size = (20,40) #width,length
-        self.state = [120,200,pi/2] #x,y,theta
+        self.state = [200,200,pi/6] #x,y,theta
         self.phi = 0 #turning angle
         self.rho = 0 #turning rate
         self.maxphi = pi/4
@@ -211,21 +226,10 @@ class Agent():
         self.proj_start = 0,0
         self.calculate_corners('c',Point(self.state[0],self.state[1]))
         pyglet.clock.schedule_interval(self.update_position, 1/FRAME_RATE)
-        self.collision_cooldown = 0
-
-
+        
     def update_position(self,dt):
         
-        if self.collision_cooldown > 0:
-            self.collision_cooldown -= dt
-            if self.reversing:
-                self.vel[0] = self.maxvel/ 2
-            else:
-                self.vel[0] = -self.maxvel/2
-            self.acc = 0
-        else:
-            self.vel[0] += self.acc*dt
-
+        self.vel[0] += self.acc*dt
         self.phi+=self.rho*dt
         
         if self.targetphi ==0:
@@ -295,19 +299,6 @@ class Agent():
                 self.acc = 0
         # self.calculate_corners()
         
-    def handle_collision(self):
-
-        if self.vel[0] > 0:
-            print("Collision moving forward")
-            self.reversing = False
-        elif self.vel[0] < 0:
-            print("collision moving backawrd")
-            self.reversing = True
-
-        self.collision_cooldown = 0.1
-        self.vel[0] = 0
-        self.acc = 0
-        print("Car stopped due to collision")
 
     def calculate_corners(self,reference,loc):
         if reference == 'c':
@@ -346,11 +337,8 @@ class Wall():
         for n in range(3):
              if intersect(self.start,self.end,self.agent.corners[n],self.agent.corners[n+1]):
                 #   self.agent.collided = 1
-
-                # Making the car stop at a collision
-                self.agent.handle_collision()
-                print("CRASH!!!!!!!")
-                return
+                  print("CRASH!!!!!!!")
+                  return
         # self.agent.collided = 0
 
     # def car_distance(self):
@@ -391,9 +379,10 @@ class Wall():
                     
 
 
-           
-
+    
 if __name__ == '__main__':
     agent = Agent()
     window = CarGame(agent)
     pyglet.app.run()
+
+    
