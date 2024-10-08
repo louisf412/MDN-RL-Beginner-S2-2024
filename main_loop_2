@@ -1,0 +1,89 @@
+from main import *
+from Q_Learning_Practice import *
+import pyglet
+from utils import plotLearning 
+
+if __name__ == '__main__':
+    qagent = QAgent(gamma = 0.99, epsilon=1.0, batch_size = 64, n_actions = 4, eps_end = 0.01, input_dims = [9], lr = 0.003)
+    carAgent = Agent()
+
+    window = CarGame(carAgent)
+    pyglet.clock.schedule_once(lambda dt: pyglet.app.exit(), 1 / 60)
+
+    scores, eps_history = [], []
+    n_iterations = 5
+
+    
+for i in range(n_iterations):
+    score  = 0 
+    done = False
+    carAgent = Agent()
+    window = CarGame(carAgent)
+
+    while not done:
+        state = [
+            carAgent.state[0], # X position
+            carAgent.state[1], # y position
+            carAgent.state[2], # Orientation
+            carAgent.vel[0], # velocity
+            *carAgent.projections[1] # Ray distances   
+        ]
+
+        # Choose action using QAgent
+        action = qagent.choose_action(state)
+
+        if action == 0: # Move forward
+            window.on_key_press(pyglet.window.key.W, None)
+            pyglet.clock.tick()
+        elif action == 1: # Move backward
+            window.on_key_press(pyglet.window.key.S, None)
+            pyglet.clock.tick()
+        elif action == 2: # Left turn
+            window.on_key_press(pyglet.window.key.A, None)
+            pyglet.clock.tick()
+        elif action == 3: # Right turn
+            window.on_key_press(pyglet.window.key.D, None)
+            pyglet.clock.tick()
+        
+        # Observe new state and reward
+        new_state = [
+            carAgent.state[0],
+            carAgent.state[1],
+            carAgent.state[2],
+            carAgent.vel[0],
+            *carAgent.projections[1]
+        ]
+
+        # Calculating reward
+        # Negative reward for collision, positive for moving forward
+
+        reward = 0
+        print(carAgent.collision_cooldown)
+        if carAgent.collision_cooldown > 0:
+            reward = -10
+        else:
+            reward = 5
+        
+        # print(reward)
+        # Check this one
+        done = carAgent.collision_cooldown > 10
+        # done = False
+        
+
+        qagent.store_transition(state, action, reward, new_state, done)
+
+        # train q agent (updating the Q-network)
+        qagent.learn()
+
+        score += reward
+
+    scores.append(score)
+    eps_history.append(qagent.epsilon)
+
+    avg_score = np.mean(scores[-100:])
+    print('episode', i, 'score %.2f' % scores, 'average score %.2f' % avg_score, 'epsilon %.2f' % qagent.epsilon)
+
+    
+    x = [i+1 for i in range(n_iterations)]
+    filename = 'car_game_learning.png'
+    plotLearning(x, scores, eps_history, filename)

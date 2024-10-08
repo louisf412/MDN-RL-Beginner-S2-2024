@@ -8,6 +8,10 @@ WINDOW_WIDTH = 720
 WINDOW_HEIGHT = 540
 FRAME_RATE = 240
 
+
+# Base Code by Louis
+# Changes highlighted
+
 # Background color
 BACKGROUND_COLOR = (255, 255, 255, 255)
 TRACK_COLOR = (0,150,150,255)
@@ -63,6 +67,7 @@ class CarGame(pyglet.window.Window):
         self.turnkeyspressed = [0,0]
 
         ## Walls
+        ## Omila: Created a more basic map
         self.walls.append(Wall((60,235),(60,130),self.agent))
         self.walls.append(Wall((60,130),(169,41),self.agent))
         self.walls.append(Wall((169,41),(570,36),self.agent))
@@ -211,11 +216,14 @@ class Agent():
         self.proj_start = 0,0
         self.calculate_corners('c',Point(self.state[0],self.state[1]))
         pyglet.clock.schedule_interval(self.update_position, 1/FRAME_RATE)
+
+        # Collision cooldown (the time for the car to move in opposite direction of call)
         self.collision_cooldown = 0
 
 
     def update_position(self,dt):
         
+        # Omila: Editied update_position so the car moves opposite to the wall
         if self.collision_cooldown > 0:
             self.collision_cooldown -= dt
             if self.reversing:
@@ -295,6 +303,7 @@ class Agent():
                 self.acc = 0
         # self.calculate_corners()
         
+    # Function to handle collisions of the car
     def handle_collision(self):
 
         if self.vel[0] > 0:
@@ -303,6 +312,7 @@ class Agent():
         elif self.vel[0] < 0:
             print("collision moving backawrd")
             self.reversing = True
+
 
         self.collision_cooldown = 0.1
         self.vel[0] = 0
@@ -342,7 +352,6 @@ class Wall():
     
 
     def car_collision(self,dt):
-        
         for n in range(3):
              if intersect(self.start,self.end,self.agent.corners[n],self.agent.corners[n+1]):
                 #   self.agent.collided = 1
@@ -388,12 +397,14 @@ class Wall():
                 if self.agent.projections[1][i] > distance_to_wall:
                     self.agent.projections[1][i] = distance_to_wall
 
+                # if i == 0:
+                #     print(f"Ray {i}: Distance to wall = {distance_to_wall}")
                     
 
 
            
 
-if __name__ == '__main__':
-    agent = Agent()
-    window = CarGame(agent)
-    pyglet.app.run()
+# if __name__ == '__main__':
+#     agent = Agent()
+#     window = CarGame(agent)
+#     pyglet.app.run()
