@@ -1,89 +1,80 @@
-import pyglet
-from pyglet import shapes
-import math
-import numpy as np
-import cv2
+class CarGame(pyglet.window.Window):
+    def __init__(self, agent):
+        super().__init__(width=WINDOW_WIDTH, height=WINDOW_HEIGHT)
+        # Initialize agent and other game components
+        self.agent = agent
+        self.batch = pyglet.graphics.Batch()
+        self.static_lines = []  # Static lines for walls
+        self.dynamic_lines = []  # Dynamic lines for car projections
+        self.walls = []
+        self.turnkeyspressed = [0, 0]
+        
+        # Initialize walls (track boundaries)
+        self.init_walls()
+        
+        # Draw initial walls
+        for wall in self.walls:
+            self.static_lines.append(pyglet.shapes.Line(
+                wall.start.x, wall.start.y, wall.end.x, wall.end.y, color=(0, 150, 150), batch=self.batch))
 
-# Loading image and applying edge detection
-img = cv2.imread("images\simple_track.png", 0)
-edges = cv2.Canny(img, 50, 50)
+    def init_walls(self):
+        # Initialize walls (similar to your original wall setup)
+        self.walls.append(Wall((60, 235), (60, 130), self.agent))
+        self.walls.append(Wall((60, 130), (169, 41), self.agent))
+        # (Add more walls as needed...)
 
-# Extracting coordinates of the boundaries
-indices = np.where(edges != [0])
-coordinates = list(zip(indices[0], indices[1]))
+    def reset_game(self):
+        # Reset the agent's state and clear all drawn elements
+        self.agent.reset()
+        self.dynamic_lines.clear()
 
-# a, b = coordinates[1]
-# # print(img.shape[0])
-# print(a)
-# print(b)
-# Creating pyglet window
-window = pyglet.window.Window(width=img.shape[1], height=img.shape[0])
-
-# window = pyglet.window.Window(1500, 800)
-
-# Load the track image
-track_image = pyglet.image.load('images\simple_track.png')
-# Spriting image
-track_sprite = pyglet.sprite.Sprite(track_image, x=0, y=-50)
-track_sprite.scale_x = window.width/track_image.width
-track_sprite.scale_y = window.height/track_image.height
-
-print(len(coordinates))
-# Batch to draw all the shapes at once
-batch = pyglet.graphics.Batch()
-
-# Drawing lines of boundary points
-# for i in range(len(coordinates) - 1):
-#     x1,y1 = coordinates[i]
-#     x2,y2 = coordinates[i + 1]
-#     # Drawing the boundaries on the graph
-#     line = shapes.Line(x2,y2,x1,y1, width = 10 color = (255,0,0), batch=batch)
+    def on_draw(self):
+        self.clear()
+        self.batch.draw()
+        self.draw_game()
     
+    def draw_game(self):
+        # Clear old dynamic lines (projections)
+        for line in self.dynamic_lines:
+            line.delete()
+        self.dynamic_lines.clear()
 
+        # Draw the car, wheels, and other elements of the car environment
+        x = self.agent.state[0]
+        y = self.agent.state[1]
+        th = self.agent.state[2]
+        phi = self.agent.phi
+        size = self.agent.size
+        corners = self.agent.corners
+        proj_angles = self.agent.projections[0]
+        proj_lengths = self.agent.projections[1]
+        st = self.agent.proj_start
 
-# def drawBoard(shape_list, batch=None):
-#     for i in range(len(coordinates) - 1):
-#         x1, y1 = coordinates[i]
-#         x2, y2 = coordinates[i + 1]
+        # Draw the car
+        body = pyglet.shapes.Rectangle(x, y, size[0], size[1], color=self.agent.car_colour[:3], batch=self.batch)
+        body.anchor_x = size[0] // 2
+        body.rotation = 90 - th * 180 / pi
 
-#         # Adjust y-coordinate for pyglet's coordinate system
-#         # y1 = img.shape[0] - y1
-#         # y2 = img.shape[0] - y2
+        # Draw car wheels
+        wheel1 = pyglet.shapes.Rectangle(corners[3].x, corners[3].y, 3, 8, color=(255, 0, 0), batch=self.batch)
+        wheel1.anchor_x = 3 // 2
+        wheel1.anchor_y = 8 // 2
+        wheel1.rotation = 90 - (th + phi) * 180 / pi
 
-#         linex = shapes.Line(0, y1, 0, y2, width=2, color=(250, 0, 0), batch=batch)
-#         linex.opacity = 250
-#         shape_list.append(linex)
+        wheel2 = pyglet.shapes.Rectangle(corners[2].x, corners[2].y, 3, 8, color=(255, 0, 0), batch=self.batch)
+        wheel2.anchor_x = 3 // 2
+        wheel2.anchor_y = 8 // 2
+        wheel2.rotation = 90 - (th + phi) * 180 / pi
 
-#         liney = shapes.Line(x1, 0, x2, 0, width=2, color=(0, 230, 0), batch=batch)
-#         liney.opacity = 250
-#         shape_list.append(liney)
+        # Draw Projections
+        for i in range(len(proj_angles)):
+            end_x = st.x + proj_lengths[i] * cos(proj_angles[i] + th)
+            end_y = st.y + proj_lengths[i] * sin(proj_angles[i] + th)
+            line = pyglet.shapes.Line(st.x, st.y, end_x, end_y, color=(255, 0, 0), batch=self.batch)
+            self.dynamic_lines.append(line)
 
+        # Draw other elements if necessary
 
-
-
-# def drawBoard(shape_list, batch=None):
-#     for i in range(len(coordinates) - 1):
-#         x1,y1 = coordinates[i]
-#         x2,y2 = coordinates[i + 1]
-
-#         linex = shapes.Line(x2,y2,x1 ,y1, width=2, color=(250, 0, 0), batch=batch)
-#         linex.opacity = 250
-#         shape_list.append(linex)
-
-#         # liney = shapes.Line(0, i, 600, i, width=2, color=(0, 230, 0), batch=batch)
-#         # liney.opacity = 250
-#         # shape_list.append(liney)
-
-# shape_list = []
-# drawBoard(shape_list, batch=batch)
-
-
-
-@window.event
-def on_draw():
-    window.clear()
-    track_sprite.draw()  # Draw the track image
-    batch.draw()  # Draws the boundaries
-
-
-pyglet.app.run()
+        # Update wall distances for new state
+        for wall in self.walls:
+            wall.car_distance()

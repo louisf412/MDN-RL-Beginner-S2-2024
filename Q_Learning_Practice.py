@@ -59,6 +59,15 @@ class QAgent():
         self.reward_memory = np.zeros(self.mem_size, dtype=np.float32)
         self.terminal_memory = np.zeros(self.mem_size, dtype=np.bool_)
 
+    def save_model(self, file_name):
+        T.save(self.Q_eval.state_dict(), file_name)
+        print(f"Model saved as {file_name}")
+    
+    def load_model(self, file_name):
+        self.Q_eval.load_state_dict(T.load(file_name))
+        self.Q_eval.eval()
+        print(f"Model loaded from {file_name}")
+    
     def store_transition(self, state, action, reward, state_, done):
         index = self.mem_cntr % self.mem_size
         self.state_memory[index] = state
