@@ -1,89 +1,153 @@
-from main import *
+
+
+import os
+import numpy as np
+from Game_engine import *
 from Q_Learning_Practice import *
 import pyglet
 from utils import plotLearning 
 
+if not os.path.exists('models'):
+    os.makedirs('models')
+
 if __name__ == '__main__':
-    qagent = QAgent(gamma = 0.99, epsilon=1.0, batch_size = 64, n_actions = 4, eps_end = 0.01, input_dims = [9], lr = 0.003)
+    qagent = QAgent(gamma=0.99, epsilon=1.0, batch_size=64, n_actions=5, eps_end=0.01, input_dims=[9], lr=0.003)
     carAgent = Agent()
+    model_file = 'test.pth'
 
     window = CarGame(carAgent)
-    pyglet.clock.schedule_once(lambda dt: pyglet.app.exit(), 1 / 60)
-
-    scores, eps_history = [], []
-    n_iterations = 5
-
     
-for i in range(n_iterations):
-    score  = 0 
+    scores, eps_history = [], []
+    n_iterations = 500
+    checkpoint_interval = 50 
+    episode_counter = 0
+    score = 0
     done = False
-    carAgent = Agent()
-    window = CarGame(carAgent)
+    max_steps = 1000
+    best_score = -np.inf
+    episode_steps = 0
 
-    while not done:
+    current_active_goal = None  # Track the current active goal
+    prev_distance = None  # Track the distance to goal
+
+    def reset_active_goal():
+        """Reset goals to make the first goal active and others inactive."""
+        global current_active_goal
+        if window.goals:
+            for goal in window.goals:
+                goal.set_active(False)
+            window.goals[0].set_active(True)
+            current_active_goal = window.goals[0]
+
+    def update(dt):
+        global done, score, episode_counter, episode_steps, prev_distance, current_active_goal, best_score
+
+        episode_steps += 1
+
+        # Normalize state
         state = [
-            carAgent.state[0], # X position
-            carAgent.state[1], # y position
-            carAgent.state[2], # Orientation
-            carAgent.vel[0], # velocity
-            *carAgent.projections[1] # Ray distances   
+            carAgent.state[0] / WINDOW_WIDTH,  # Normalized x position
+            carAgent.state[1] / WINDOW_HEIGHT,  # Normalized y position
+            carAgent.state[2] / (2 * np.pi),  # Normalized orientation
+            carAgent.vel[0] / carAgent.maxvel,  # Normalized velocity
+            *(dist / 10000 for dist in carAgent.projections[1])  # Normalized projections
         ]
 
         # Choose action using QAgent
         action = qagent.choose_action(state)
-
-        if action == 0: # Move forward
+        if action == 0:  # Move forward
             window.on_key_press(pyglet.window.key.W, None)
-            pyglet.clock.tick()
-        elif action == 1: # Move backward
+        elif action == 1:  # Move backward
             window.on_key_press(pyglet.window.key.S, None)
-            pyglet.clock.tick()
-        elif action == 2: # Left turn
+        elif action == 2:  # Turn left
             window.on_key_press(pyglet.window.key.A, None)
-            pyglet.clock.tick()
-        elif action == 3: # Right turn
+        elif action == 3:  # Turn right
             window.on_key_press(pyglet.window.key.D, None)
-            pyglet.clock.tick()
-        
-        # Observe new state and reward
+        elif action == 4:  # Do nothing
+            pass
+
+        # Calculate new state
         new_state = [
-            carAgent.state[0],
-            carAgent.state[1],
-            carAgent.state[2],
-            carAgent.vel[0],
-            *carAgent.projections[1]
+            carAgent.state[0] / WINDOW_WIDTH,
+            carAgent.state[1] / WINDOW_HEIGHT,
+            carAgent.state[2] / (2 * np.pi),
+            carAgent.vel[0] / carAgent.maxvel,
+            *(dist / 10000 for dist in carAgent.projections[1])
         ]
 
-        # Calculating reward
-        # Negative reward for collision, positive for moving forward
+        # Calculate reward
+        reward = -1  # Living penalty to encourage efficiency
 
-        reward = 0
-        print(carAgent.collision_cooldown)
+        #Check if car reached a goal
+        if current_active_goal and current_active_goal.check_goal_passed(dt):
+            reward = 200
+            score += reward
+            print("Goal passed")
+            window.activate_next_goal(current_active_goal)  # Activate next goal
+            for goal in window.goals:
+                current_active_goal = goal
+            # current_active_goal = window.goals[(window.goals.index(current_active_goal) + 1) %len(window.goals)]
+    #Activate next goal
+
+        for goal in window.goals:
+            if goal.is_active and goal.check_goal_passed(dt):
+                reward = 200  
+                
+                # Activate the next goal in the sequence (this can be part of the Goal class logic)
+                window.activate_next_goal(goal)
+                break  # Only one goal can be passed at a time
+
+        # Penalty for collision
         if carAgent.collision_cooldown > 0:
-            reward = -10
-        else:
-            reward = 5
-        
-        # print(reward)
-        # Check this one
-        done = carAgent.collision_cooldown > 10
-        # done = False
-        
+            reward = -100
+            done = True
 
+        # Reward for moving in the direction of goals
+        if prev_distance is not None:
+            current_distance = np.linalg.norm([carAgent.state[0] - current_active_goal.start.x, carAgent.state[1] - current_active_goal.start.y])
+            if current_distance < prev_distance:
+                reward += 10  # Positive reward for moving closer to the goal
+            prev_distance = current_distance
+
+        # Update Q-learning agent
         qagent.store_transition(state, action, reward, new_state, done)
-
-        # train q agent (updating the Q-network)
         qagent.learn()
 
+        # Increment score
         score += reward
+        # print(f"Step reward: {reward}, Total score: {score}")
 
-    scores.append(score)
-    eps_history.append(qagent.epsilon)
+        # End episode if done
+        if done or episode_steps > max_steps:
+            print(f"Episode {episode_counter + 1} finished with score {score}")
+            scores.append(score)
+            eps_history.append(qagent.epsilon)
 
-    avg_score = np.mean(scores[-100:])
-    print('episode', i, 'score %.2f' % scores, 'average score %.2f' % avg_score, 'epsilon %.2f' % qagent.epsilon)
+            # Save the best model
+            if score > best_score:
+                best_score = score
+                qagent.save_model("best_model.pth")
+                print(f"Best model saved with score {best_score}")
 
-    
-    x = [i+1 for i in range(n_iterations)]
-    filename = 'car_game_learning.png'
-    plotLearning(x, scores, eps_history, filename)
+            # Checkpoint saving
+            if (episode_counter + 1) % checkpoint_interval == 0:
+                model_filename = f"trained_model_eps_{episode_counter + 1}.pth"
+                qagent.save_model(model_filename)
+                print(f"Model saved as {model_filename}")
+
+            # Reset the environment and counters
+            window.reset_game()
+            carAgent.reset()
+            # reset_active_goal()
+            prev_distance = None
+            score = 0
+            done = False
+            episode_counter += 1
+            episode_steps = 0
+
+    # Initialize first goal
+    # reset_active_goal()
+
+    # Schedule update and start the application
+    pyglet.clock.schedule_interval(update, 1 / 240)
+    pyglet.app.run()

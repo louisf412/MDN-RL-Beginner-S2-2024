@@ -59,6 +59,16 @@ class QAgent():
         self.reward_memory = np.zeros(self.mem_size, dtype=np.float32)
         self.terminal_memory = np.zeros(self.mem_size, dtype=np.bool_)
 
+        self.Q_target = DeepQNetwork(self.lr, n_actions=n_actions, input_dims = input_dims, fc1_dims = 256, fc2_dims = 256)
+        self.update_target_network()
+
+
+    def update_target_network(self):
+        # Target network to be used every 1000 iterations for greater stability
+        self.Q_target.load_state_dict(self.Q_eval.state_dict())
+
+
+
     def save_model(self, file_name):
         T.save(self.Q_eval.state_dict(), file_name)
         print(f"Model saved as {file_name}")
@@ -108,7 +118,10 @@ class QAgent():
         action_batch = self.action_memory[batch]
 
         q_eval = self.Q_eval.forward(state_batch)[batch_index, action_batch]
-        q_next = self.Q_eval.forward(new_state_batch)
+
+        # q_next = self.Q_eval.forward(new_state_batch)
+        # Target network used for q_next
+        q_next = self.Q_target.forward(new_state_batch)
         q_next[terminal_batch] = 0.0
 
         q_target = reward_batch + self.gamma * T.max(q_next, dim=1)[0]
@@ -117,8 +130,11 @@ class QAgent():
         loss.backward()
         self.Q_eval.optimizer.step()
 
-        self.epsilon = self.epsilon - self.eps_dec if self.epsilon > self.eps_min \
-                        else self.eps_min
+        self.epsilon = self.epsilon - self.eps_dec if self.epsilon > self.eps_min else self.eps_min
+
+        # If the counter is 1000
+        if self.mem_cntr % 1000 == 0:
+            self.update_target_network()
         
 
 

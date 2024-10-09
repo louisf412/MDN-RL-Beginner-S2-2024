@@ -95,6 +95,8 @@ class CarGame(pyglet.window.Window):
         
         self.turnkeyspressed = [0,0]
 
+        # Score to test goals
+        self.score = 0
 
         self.init_walls()
         self.init_goals()
@@ -135,6 +137,17 @@ class CarGame(pyglet.window.Window):
 
 
 
+    def init_goals(self):
+        self.goal_batch = pyglet.graphics.Batch()
+        self.goals.append(Goal((27,250),(204,250),self.agent, is_active=True, batch = self.goal_batch))
+        self.goals.append(Goal((21,371),(248,269),self.agent, is_active=False, batch = self.goal_batch))
+        self.goals.append(Goal((54,506),(268,310),self.agent, is_active=False, batch = self.goal_batch))
+        self.goals.append(Goal((100,51),(265,176),self.agent, is_active=False, batch = self.goal_batch))
+        self.goals.append(Goal((326,515),(336,326),self.agent, is_active=False, batch = self.goal_batch))
+        self.goals.append(Goal((647,506),(429,332),self.agent, is_active=False, batch = self.goal_batch))
+        self.goals.append(Goal((686,276),(474,271),self.agent, is_active=False, batch = self.goal_batch))
+        self.goals.append(Goal((544,38),(447,210),self.agent, is_active=False, batch = self.goal_batch))
+        self.goals.append(Goal((357,27),(359,191),self.agent, is_active=False, batch = self.goal_batch))
 ################################################################################
 
 
@@ -152,8 +165,12 @@ class CarGame(pyglet.window.Window):
             line.delete()
         self.dynamic_lines.clear()
 
+        # Re adding goals
+        self.init_goals()
+
         # Reinitialise walls and redraw them
         self.init_walls()
+
         for wall in self.walls:
             self.lines.append(pyglet.shapes.Line(wall.start.x,wall.start.y,wall.end.x,wall.end.y,color=self.carcolour[1][:3], batch=self.batch))
         self.lines.append(pyglet.shapes.Line(0,0,0,1))
@@ -167,6 +184,8 @@ class CarGame(pyglet.window.Window):
         self.clear()
         self.batch.draw()
         self.draw_game()
+        
+        self.goal_batch.draw()
 
     def draw_game(self):
         # Clear old dynamic lines
@@ -281,6 +300,20 @@ class CarGame(pyglet.window.Window):
             self.agent.targetphi = self.agent.maxphi
             self.agent.rho = -4*self.agent.maxphi
             self.turnkeyspressed[1] = 1
+
+
+    def activate_next_goal(self,current_goal):
+        current_index = self.goals.index(current_goal)
+
+        if current_index + 1 < len(self.goals):
+            self.goals[current_index + 1].set_active(True)
+
+    # def update(self, dt):
+    #     for goal in self.goals:
+    #         if goal.is_active and goal.check_goal_passed():
+    #             self.score += 200  # Add reward for goal passed
+    #             print(f"Goal passed! Current score: {self.score}")
+    #             self.activate_next_goal(goal)  # Activate the next goal
 
 class Agent():
     def __init__(self):
@@ -507,8 +540,50 @@ class Wall():
                 #     print(f"Ray {i}: Distance to wall = {distance_to_wall}")
                     
 
+class Goal:
+    def __init__(self, start, end, agent, is_active=False, batch = None):
+        self.start = Point(start[0], start[1])
+        self.end = Point(end[0], end[1])
+        self.agent = agent
+        self.is_active = is_active  # Determines whether this goal is active
+        pyglet.clock.schedule_interval(self.check_goal_passed, 5 / FRAME_RATE)
+        self.batch = batch                      # Pyglet batch for rendering optimization
 
-           
+        # Use PyGlet shapes to draw the goal line. The color will be red if active, otherwise green.
+        self.line = pyglet.shapes.Line(
+            self.start.x, self.start.y, self.end.x, self.end.y,
+            color=(0, 255, 0) if not self.is_active else (255, 0, 0),  # Green for inactive, red for active
+            width=4,  # Line thickness
+            batch=self.batch
+        )
+
+    def check_goal_passed(self, dt):
+        if not self.is_active:
+            return False
+
+        # Check if the car crosses the goal line
+        for n in range(3):  # Loop over the car's corners
+            if intersect(self.start, self.end, self.agent.corners[n], self.agent.corners[n+1]):
+                # If the car crosses the goal, deactivate this goal and return success
+                self.on_goal_passed()
+                return True
+        return False
+
+    def on_goal_passed(self):
+
+        print("Goal reached!")
+        self.set_active(False)  # Deactivate this goal
+        # You would then activate the next goal in sequence
+
+    def set_active(self, active):
+
+        self.is_active = active
+        self.line.color = (255, 0, 0) if self.is_active else (0, 255, 0)
+
+
+    def draw(self):
+        """Draw the goal line if not using a batch."""
+        self.line.draw()
 
 if __name__ == '__main__':
     agent = Agent()
